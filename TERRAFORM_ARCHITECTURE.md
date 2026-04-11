@@ -91,7 +91,29 @@ The system has three distinct tiers combined with external supporting services t
 
 ---
 
-## 📂 Terraform File Structure & Reasoning
+## � Scalability Strategy
+
+To ensure the Robo-Advisor can seamlessly handle 10 users or 100,000 users without crashing or incurring unnecessary costs, each layer implements specific AWS auto-scaling mechanisms:
+
+### 1. Scaling the API (Layer 3)
+* **Mechanism:** **Amazon ECS Service Auto Scaling (Target Tracking)**
+* **How it works:** The Fargate service running the FastAPI backend is configured to maintain a target CPU utilization of 70%. If a marketing campaign brings a surge of users logging in at once, ECS automatically provisions additional container replicas behind the Load Balancer to handle the web traffic. Once traffic subsides, it kills the extra containers to save money.
+
+### 2. Scaling the AI / GPU Workers (Layer 2)
+* **Mechanism:** **Amazon EC2 Auto Scaling Groups (ASG) tied to SQS**
+* **How it works:** GPU instances (`g4dn.xlarge`) are expensive. We place the Analysis Engine in an Auto Scaling Group configured to scale based on the **SQS Queue Depth** (`ApproximateNumberOfMessagesVisible`). 
+  * If the queue is empty, the ASG scales down to 0 or 1 instance.
+  * If 5,000 users suddenly require portfolio rebalancing (e.g., due to a major market regime shift), the queue depth spikes. CloudWatch detects this and automatically boots up multiple GPU instances to process the queue in parallel.
+
+### 3. Scaling the Database (Storage & Reads)
+* **Mechanism:** **RDS Storage Auto Scaling & Multiple Read Replicas**
+* **How it works:** 
+  * As the ETL pipelines dump millions of rows of new market data over time, RDS Storage Auto Scaling automatically expands the disk space without downtime.
+  * If the fleet of GPU workers expands to process an SQS spike, a single Read Replica might become a bottleneck. We can configure **Auto Scaling for RDS Read Replicas**, automatically spinning up additional read-only databases when CPU/connections max out on the existing ones. Alternatively, this architecture is primed to migrate to **Amazon Aurora PostgreSQL Serverless v2**, which scales compute capacity up and down instantly based on query load.
+
+### 4. Scaling the Frontend & ETL
+* **Frontend:** Amazon S3 and CloudFront scale infinitely and automatically by default.
+* **ETL (Layer 1):** EventBridge can trigger multiple ECS Fargate tasks in parallel (e.g., one container pulls Crypto, another pulls Stocks, another pulls Economic Indicators) rather than running sequentially, ensuring data extraction finishes quickly regardless of how many data sources are added.
 
 The Infrastructure-as-Code (IaC) is modularized to ensure maintainability, readability, and a clear separation of concerns.
 
