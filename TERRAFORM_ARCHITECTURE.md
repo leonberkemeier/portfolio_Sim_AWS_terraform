@@ -50,7 +50,7 @@ Below is a visual representation of how the components interact in AWS, mapping 
 │                                     │      │ write                       │   │  │
 │                                     │      ▼                             ▼   │  │
 │                                     │  ┌──────────────────────────────────┐  │  │
-│                                     │  │        Primary Database          │◄─┘   │  │
+│                                     │  │        Primary Database          │◄─┘  │  
 │                                     │  │      (Amazon RDS Postgres)       │  │  │
 │                                     │  │      [database.tf]               │  │  │
 │                                     │  └──────────────────────────────────┘  │  │
